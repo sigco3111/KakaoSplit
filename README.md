@@ -1,35 +1,52 @@
-# Kakao Notion Webapp (Vercel Serverless)
 
-이 프로젝트는 카카오톡 대화 CSV 파일을 날짜별로 분류하여, 지정한 폴더(날짜 또는 전체 output)를 Notion 페이지에 자동 등록하는 서버리스 웹앱입니다.
+# KakaoTalk → Notion 자동 등록 웹앱
+
+카카오톡 대화 CSV 파일을 날짜별로 분류하여 output 폴더에 저장하고, 지정한 폴더(날짜 또는 전체)를 Notion 페이지/DB에 자동 등록하는 웹앱입니다.
 
 ## 주요 기능
-- CSV 파일 업로드 및 날짜별 분류
-- 날짜별 폴더/파일 생성 및 관리
-- 폴더 선택 후 Notion 페이지 자동 등록
-- Notion API 토큰/DB/페이지 ID 설정 (로컬스토리지 저장)
-- Vercel Serverless Functions 기반 백엔드
+- CSV 파일 업로드 → 날짜별로 분류하여 output/2025-09-04.md 등으로 저장
+- output 폴더/날짜 폴더 선택 → 해당 파일을 Notion에 등록
+- Notion API 토큰, DB ID 등 설정값은 UI에서 입력, 로컬스토리지에 저장
+- 모든 UI 한글화
+- Vercel 배포 지원 (App Router 기반)
 
-## 폴더 구조
+## 폴더 구조 (2025-09 기준)
 ```
-/ (프로젝트 루트)
-  ├── /frontend      # Next.js 기반 프론트엔드
-  ├── /backend       # Vercel 서버리스 함수 예시 (참고용)
-  ├── /output        # 날짜별 chat.txt 파일 생성 위치 (외부 스토리지 권장)
-  ├── PRD.md         # 요구사항 정의서
-  ├── checklist.md   # 개발 체크리스트
-  └── README.md      # 프로젝트 설명
+webapp/
+	app/           # Next.js App Router 기반 메인 UI 및 API
+	output/        # 날짜별로 생성되는 대화 파일 (ex. 2025-09-04.md)
+	public/        # 정적 파일
+	__tests__/     # 주요 테스트 코드
+	...
 ```
+
+## 주요 파일 설명
+- app/page.tsx: 메인 UI, 한글화, 폴더 선택, Notion 설정, 연결 테스트
+- app/api/upload/route.ts: CSV 업로드 및 날짜별 파일 생성
+- app/api/get-files/route.ts: output 폴더 파일 목록 조회
+- app/api/notion-register/route.ts: Notion 페이지 등록 API (DB ID 자동 정규화)
+- app/api/test-notion/route.ts: Notion DB 연결 테스트 API
+
+## 사용법
+1. CSV 파일 업로드 → output 폴더에 날짜별 파일 생성
+2. Notion 설정(토큰, DB ID) 입력 → 연결 테스트
+3. output 폴더 또는 날짜 폴더 선택 후 Notion 등록
+
+## 주의사항
+- Notion DB ID는 하이픈 포함/미포함 모두 입력 가능 (자동 정규화)
+- Integration 권한 및 DB 공유 필수
+- Vercel 배포 시 App Router 구조만 지원
 
 ## 개발/배포
-- Vercel에 프로젝트를 연결하여 자동 배포
-- 프론트엔드: Next.js, 파일 업로드/설정/알림 UI
-- 백엔드: `/api/upload`, `/api/notion-register` 등 서버리스 함수로 구현
-- vercel --prod 명령어로 배포.
+```bash
+cd webapp
+npm install
+npm run dev
+```
 
 ## 참고
 - PRD.md: 상세 요구사항 및 기능 흐름
-- checklist.md: 단계별 개발 체크리스트
+- checklist.md: 개발 체크리스트
 - .github/copilot-instructions.md: AI 개발 가이드
 
----
-문의 및 추가 요청은 이슈로 남겨주세요.
+문의: sigco3111@gmail.com
