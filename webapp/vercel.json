@@ -1,18 +1,5 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
-  "functions": {
-    "app/api/upload/route.js": {
-      "maxDuration": 30
-    },
-    "app/api/notion-register/route.js": {
-      "maxDuration": 30  
-    },
-    "app/api/get-files/route.js": {
-      "maxDuration": 10
-    }
-  },
   "regions": ["icn1"]
 }

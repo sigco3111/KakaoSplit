@@ -5,6 +5,8 @@ import path from 'path';
 import { parse } from 'csv-parse';
 import { Readable } from 'stream';
 
+export const maxDuration = 30;
+
 // 요청을 Node.js IncomingMessage로 변환하는 헬퍼 함수
 async function parseFormData(request: NextRequest) {
   return new Promise((resolve, reject) => {
