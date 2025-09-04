@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Turbopack 설정 (개발 모드에서만)
-  turbopack: {},
+  // 서버 외부 패키지 설정 (Next.js 15.5.2+)
+  serverExternalPackages: ['formidable'],
   
   // 파일 추적 루트 설정
   outputFileTracingRoot: __dirname,
