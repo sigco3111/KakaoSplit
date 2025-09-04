@@ -8,9 +8,15 @@ describe('Home', () => {
   beforeEach(() => {
     (fetch as jest.Mock).mockClear();
     (fetch as jest.Mock).mockImplementation((url) => {
-      if (url === '/api/get-files') {
+      if (url.includes('/api/upload')) {
         return Promise.resolve({
-          json: () => Promise.resolve({ files: ['2025-01-01.md', '2025-01-02.md'] }),
+          json: () => Promise.resolve({ 
+            message: 'Success', 
+            files: [
+              { name: 'chat_2025-01-01.md', content: 'Sample content', size: 1024 },
+              { name: 'chat_2025-01-02.md', content: 'Sample content 2', size: 2048 }
+            ]
+          }),
           ok: true,
         });
       }
@@ -29,7 +35,7 @@ describe('Home', () => {
     await act(async () => {
         render(<Home />);
     });
-    const heading = screen.getByRole('heading', { name: /KakaoTalk to Notion/i });
+    const heading = screen.getByRole('heading', { name: /KakaoSplit/i });
     expect(heading).toBeInTheDocument();
   });
 
