@@ -1,52 +1,103 @@
 
-# KakaoTalk → Notion 자동 등록 웹앱
+# KakaoSplit
 
-카카오톡 대화 CSV 파일을 날짜별로 분류하여 output 폴더에 저장하고, 지정한 폴더(날짜 또는 전체)를 Notion 페이지/DB에 자동 등록하는 웹앱입니다.
+카카오톡 대화 CSV 파일을 날짜별로 분리하여 다운로드할 수 있는 웹 애플리케이션입니다.
 
-## 주요 기능
-- CSV 파일 업로드 → 날짜별로 분류하여 output/2025-09-04.md 등으로 저장
-- output 폴더/날짜 폴더 선택 → 해당 파일을 Notion에 등록
-- Notion API 토큰, DB ID 등 설정값은 UI에서 입력, 로컬스토리지에 저장
-- 모든 UI 한글화
-- Vercel 배포 지원 (App Router 기반)
+## 🚀 주요 기능
 
-## 폴더 구조 (2025-09 기준)
-```
-webapp/
-	app/           # Next.js App Router 기반 메인 UI 및 API
-	output/        # 날짜별로 생성되는 대화 파일 (ex. 2025-09-04.md)
-	public/        # 정적 파일
-	__tests__/     # 주요 테스트 코드
-	...
-```
+- **CSV 파일 업로드**: 카카오톡에서 내보낸 대화 CSV 파일을 업로드
+- **날짜별 자동 분리**: 대화 내용을 날짜별로 자동 분리하여 개별 파일 생성
+- **ZIP 다운로드**: 처리된 모든 파일을 ZIP으로 압축하여 한 번에 다운로드
+- **개별 다운로드**: 원하는 날짜의 파일만 선택하여 개별 다운로드
+- **Vercel 최적화**: 서버리스 환경에서 안정적으로 작동
 
-## 주요 파일 설명
-- app/page.tsx: 메인 UI, 한글화, 폴더 선택, Notion 설정, 연결 테스트
-- app/api/upload/route.ts: CSV 업로드 및 날짜별 파일 생성
-- app/api/get-files/route.ts: output 폴더 파일 목록 조회
-- app/api/notion-register/route.ts: Notion 페이지 등록 API (DB ID 자동 정규화)
-- app/api/test-notion/route.ts: Notion DB 연결 테스트 API
+## 🛠️ 기술 스택
 
-## 사용법
-1. CSV 파일 업로드 → output 폴더에 날짜별 파일 생성
-2. Notion 설정(토큰, DB ID) 입력 → 연결 테스트
-3. output 폴더 또는 날짜 폴더 선택 후 Notion 등록
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes
+- **파일 처리**: csv-parse, JSZip
+- **배포**: Vercel
 
-## 주의사항
-- Notion DB ID는 하이픈 포함/미포함 모두 입력 가능 (자동 정규화)
-- Integration 권한 및 DB 공유 필수
-- Vercel 배포 시 App Router 구조만 지원
+## 📦 설치 및 실행
 
-## 개발/배포
+### 로컬 개발
+
 ```bash
-cd webapp
+# 저장소 클론
+git clone <repository-url>
+cd kakao_notion
+
+# 의존성 설치
 npm install
+
+# 개발 서버 실행
 npm run dev
 ```
 
-## 참고
-- PRD.md: 상세 요구사항 및 기능 흐름
-- checklist.md: 개발 체크리스트
-- .github/copilot-instructions.md: AI 개발 가이드
+### 배포
+
+```bash
+# 빌드
+npm run build
+
+# Vercel 배포
+vercel --prod
+```
+
+## 💡 사용법
+
+1. **설정**: 파일이 저장될 폴더 경로를 설정합니다.
+2. **CSV 업로드**: 카카오톡에서 내보낸 대화 CSV 파일을 업로드합니다.
+3. **파일 다운로드**: 
+   - 모든 파일을 ZIP으로 다운로드하거나
+   - 원하는 날짜의 파일만 개별 다운로드할 수 있습니다.
+
+## 📁 파일 구조
+
+```
+kakao_notion/
+├── app/
+│   ├── api/
+│   │   ├── upload/          # CSV 파일 업로드 및 처리
+│   │   ├── get-files/       # 파일 목록 조회
+│   │   └── download/        # 파일 다운로드
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx             # 메인 페이지
+├── public/
+├── package.json
+└── README.md
+```
+
+## 🔧 API 엔드포인트
+
+- `POST /api/upload`: CSV 파일 업로드 및 날짜별 분리 처리
+- `GET /api/get-files`: 처리된 파일 목록 조회
+- `POST /api/download`: 개별 파일 다운로드
+
+## 🌐 환경별 동작
+
+### 로컬 환경
+- 사용자가 지정한 경로에 실제 파일 생성
+- 파일 시스템을 통한 파일 관리
+
+### Vercel (서버리스)
+- `/tmp` 디렉터리를 사용한 임시 파일 처리
+- 메모리 기반 파일 내용 관리
+- 브라우저 직접 다운로드 방식
+
+## 🐛 문제 해결
+
+### 파일 권한 오류
+- "임시폴더 (/tmp)" 옵션을 사용하세요
+- 또는 접근 가능한 폴더 경로를 직접 입력하세요
+
+### CSV 파일 형식 오류
+- 카카오톡에서 정상적으로 내보낸 CSV 파일인지 확인하세요
+- 파일 인코딩이 UTF-8인지 확인하세요
+
+## 📄 라이센스
+
+MIT License
 
 문의: sigco3111@gmail.com

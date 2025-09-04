@@ -50,10 +50,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'CSV 파일에 데이터가 없습니다.' }, { status: 400 });
     }
 
-    // 출력 디렉토리 생성
-    const outputDir = path.resolve(outputPath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    // Vercel 환경에서는 /tmp 디렉터리만 쓰기 가능
+    // 사용자 입력 경로 대신 임시 디렉터리 사용
+    const timestamp = Date.now();
+    const outputDir = path.join('/tmp', `kakao-chat-${timestamp}`);
+    
+    try {
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+    } catch (error) {
+      console.error('디렉터리 생성 오류:', error);
+      return NextResponse.json({ 
+        error: '임시 디렉터리 생성에 실패했습니다.' 
+      }, { status: 500 });
     }
 
     // 날짜별로 메시지 분류
@@ -116,20 +126,15 @@ export async function POST(request: NextRequest) {
       });
     });
 
-    // 각 날짜별로 파일 생성 (폴더 없이 날짜가 포함된 파일명으로)
-    const createdFiles: string[] = [];
+    // 각 날짜별로 파일 생성
+    const createdFiles: Array<{name: string, content: string, path: string}> = [];
     const processedDates = Object.keys(messagesByDate);
     
     console.log(`처리된 날짜들: ${processedDates.join(', ')}`);
     console.log(`총 ${processedDates.length}개의 날짜, ${Object.values(messagesByDate).reduce((sum, msgs) => sum + msgs.length, 0)}개의 메시지`);
     
-    // 출력 디렉토리가 존재하는지 확인하고 생성
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-    
     for (const [date, messages] of Object.entries(messagesByDate)) {
-      // 날짜가 포함된 파일명으로 직접 생성 (폴더 없이)
+      // 날짜가 포함된 파일명으로 생성
       const fileName = `chat_${date}.md`;
       const filePath = path.join(outputDir, fileName);
       
@@ -137,9 +142,18 @@ export async function POST(request: NextRequest) {
         `${msg.time} ${msg.user}: ${msg.message}`
       ).join('\n');
 
-      fs.writeFileSync(filePath, content, 'utf-8');
-      createdFiles.push(fileName);
-      console.log(`생성된 파일: ${fileName} (${messages.length}개 메시지)`);
+      try {
+        fs.writeFileSync(filePath, content, 'utf-8');
+        createdFiles.push({
+          name: fileName,
+          content: content,
+          path: filePath
+        });
+        console.log(`생성된 파일: ${fileName} (${messages.length}개 메시지)`);
+      } catch (error) {
+        console.error(`파일 생성 오류 (${fileName}):`, error);
+        // 파일 생성에 실패해도 계속 진행
+      }
     }
 
     if (createdFiles.length === 0) {
@@ -148,12 +162,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Vercel 환경을 위해 파일 내용도 함께 반환
     return NextResponse.json({
       message: `CSV 파일이 성공적으로 처리되었습니다. ${createdFiles.length}개의 날짜별 파일이 생성되었습니다.`,
-      files: createdFiles,
+      files: createdFiles.map(f => ({
+        name: f.name,
+        content: f.content,
+        size: f.content.length
+      })),
       outputPath: outputDir,
       totalMessages: Object.values(messagesByDate).reduce((sum, msgs) => sum + msgs.length, 0),
-      dateRange: processedDates.length > 0 ? `${processedDates[0]} ~ ${processedDates[processedDates.length - 1]}` : ''
+      dateRange: processedDates.length > 0 ? `${processedDates[0]} ~ ${processedDates[processedDates.length - 1]}` : '',
+      // Vercel 환경에서는 실제 파일 경로 대신 임시 경로 정보
+      isTemporary: true,
+      note: 'Vercel 환경에서는 파일이 임시 디렉터리에 생성됩니다.'
     });
 
   } catch (error) {

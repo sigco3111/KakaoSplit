@@ -1,5 +1,5 @@
 {
-  "name": "webapp",
+  "name": "kakao-split",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,10 +10,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@notionhq/client": "^5.0.0",
     "@types/formidable": "^3.4.5",
     "csv-parse": "^6.1.0",
     "formidable": "^3.5.4",
+    "jszip": "^3.10.1",
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"

@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
 
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
-  const [notionToken, setNotionToken] = useState('');
-  const [notionDbId, setNotionDbId] = useState('');
-  const [outputPath, setOutputPath] = useState('/tmp/kakao-notion-output'); // 기본값을 절대경로로 설정
+  const [outputPath, setOutputPath] = useState('/tmp/kakao-split-output'); // 기본값 변경
   const [outputFiles, setOutputFiles] = useState<string[]>([]);
+  const [processedFiles, setProcessedFiles] = useState<Array<{name: string, content: string, size: number}>>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,24 +20,24 @@ export default function Home() {
     
     switch (pathType) {
       case 'tmp':
-        quickPath = userAgent.includes('windows') ? 'C:\\temp\\kakao-chats' : '/tmp/kakao-chats';
+        quickPath = userAgent.includes('windows') ? 'C:\\temp\\kakao-split' : '/tmp/kakao-split';
         break;
       case 'desktop':
         if (userAgent.includes('mac')) {
-          quickPath = '/Users/' + (localStorage.getItem('username') || 'user') + '/Desktop/kakao-chats';
+          quickPath = '/Users/' + (localStorage.getItem('username') || 'user') + '/Desktop/kakao-split';
         } else if (userAgent.includes('windows')) {
-          quickPath = 'C:\\Users\\' + (localStorage.getItem('username') || 'user') + '\\Desktop\\kakao-chats';
+          quickPath = 'C:\\Users\\' + (localStorage.getItem('username') || 'user') + '\\Desktop\\kakao-split';
         } else {
-          quickPath = '/home/' + (localStorage.getItem('username') || 'user') + '/Desktop/kakao-chats';
+          quickPath = '/home/' + (localStorage.getItem('username') || 'user') + '/Desktop/kakao-split';
         }
         break;
       case 'downloads':
         if (userAgent.includes('mac')) {
-          quickPath = '/Users/' + (localStorage.getItem('username') || 'user') + '/Downloads/kakao-chats';
+          quickPath = '/Users/' + (localStorage.getItem('username') || 'user') + '/Downloads/kakao-split';
         } else if (userAgent.includes('windows')) {
-          quickPath = 'C:\\Users\\' + (localStorage.getItem('username') || 'user') + '\\Downloads\\kakao-chats';
+          quickPath = 'C:\\Users\\' + (localStorage.getItem('username') || 'user') + '\\Downloads\\kakao-split';
         } else {
-          quickPath = '/home/' + (localStorage.getItem('username') || 'user') + '/Downloads/kakao-chats';
+          quickPath = '/home/' + (localStorage.getItem('username') || 'user') + '/Downloads/kakao-split';
         }
         break;
     }
@@ -108,16 +108,12 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('notionToken');
-    const dbId = localStorage.getItem('notionDbId');
     const savedOutputPath = localStorage.getItem('outputPath');
-    if (token) setNotionToken(token);
-    if (dbId) setNotionDbId(dbId);
     if (savedOutputPath) {
       setOutputPath(savedOutputPath);
     } else {
-      // 기본값을 프로젝트 루트의 output 폴더로 설정 (권한 문제 방지)
-      setOutputPath('/tmp/kakao-notion-output');
+      // 기본값을 KakaoSplit용 폴더로 설정
+      setOutputPath('/tmp/kakao-split-output');
     }
     fetchOutputFiles();
   }, []);
@@ -146,11 +142,11 @@ export default function Home() {
     }
   };
 
-  const handleSaveNotionSettings = () => {
+  const handleSaveSettings = () => {
     // 절대경로 유효성 검사 (클라이언트 사이드용)
     const isAbsolutePath = outputPath.startsWith('/') || /^[A-Za-z]:[\\/]/.test(outputPath);
     if (!isAbsolutePath) {
-      setError('저장 폴더 경로는 절대경로여야 합니다. (예: /tmp/kakao-chats 또는 C:\\temp\\kakao-chats)');
+      setError('저장 폴더 경로는 절대경로여야 합니다. (예: /tmp/kakao-split 또는 C:\\temp\\kakao-split)');
       setTimeout(() => setError(''), 5000);
       return;
     }
@@ -161,8 +157,6 @@ export default function Home() {
       setTimeout(() => setMessage(''), 5000);
     }
     
-    localStorage.setItem('notionToken', notionToken);
-    localStorage.setItem('notionDbId', notionDbId);
     localStorage.setItem('outputPath', outputPath);
     setMessage('설정이 저장되었습니다!');
     setTimeout(() => setMessage(''), 3000);
@@ -193,57 +187,29 @@ export default function Home() {
       const data = await res.json();
       if (res.ok) {
         setMessage(data.message);
+        
+        // Vercel 환경에서는 파일 내용이 응답에 포함됨
+        if (data.files && Array.isArray(data.files) && data.files.length > 0) {
+          // 새로운 응답 형식 처리 (파일 내용 포함)
+          if (data.files[0].content !== undefined) {
+            setProcessedFiles(data.files);
+            setOutputFiles(data.files.map((f: any) => f.name));
+          } else {
+            // 기존 응답 형식 (파일명만)
+            setOutputFiles(data.files);
+          }
+        }
+        
+        if (data.note) {
+          setMessage(data.message + '\n\n' + data.note);
+        }
+        
         fetchOutputFiles(); // Refresh file list
       } else {
         setError(`오류: ${data.error}`);
       }
     } catch (error) {
       setError('파일 업로드 중 오류 발생');
-    } finally {
-      setLoading(false);
-      setTimeout(() => {
-        setMessage('');
-        setError('');
-      }, 3000);
-    }
-  };
-
-  const handleRegisterToNotion = async (all = false) => {
-    const filesToRegister = all ? outputFiles : selectedFiles;
-    if (filesToRegister.length === 0) {
-      setError('등록할 파일을 선택해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    if (!notionToken || !notionDbId) {
-      setError('노션 API 토큰과 데이터베이스 ID를 입력해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    setLoading(true);
-    setMessage('');
-    setError('');
-
-    try {
-      const res = await fetch('/api/notion-register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notionToken, notionDbId, selectedFiles: filesToRegister, outputPath }),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMessage(data.message);
-        setSelectedFiles([]);
-      } else {
-        setError(`오류: ${data.error}`);
-      }
-    } catch (error) {
-      setError('노션 등록 중 오류 발생');
     } finally {
       setLoading(false);
       setTimeout(() => {
@@ -271,77 +237,93 @@ export default function Home() {
     }
   };
 
-  const testNotionConnection = async () => {
-    if (!notionToken || !notionDbId) {
-      setError('Notion 토큰과 데이터베이스 ID를 먼저 입력해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    setLoading(true);
-    setMessage('');
-    setError('');
-
+  const downloadFile = async (fileName: string) => {
     try {
-      const res = await fetch('/api/test-notion', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          notionToken,
-          notionDbId,
-        }),
+      const fileData = processedFiles.find(f => f.name === fileName);
+      if (!fileData) {
+        setError('파일 데이터를 찾을 수 없습니다.');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      // 브라우저에서 직접 다운로드
+      const blob = new Blob([fileData.content], { type: 'text/plain; charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setMessage(`${fileName} 파일이 다운로드되었습니다.`);
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setError('파일 다운로드 중 오류가 발생했습니다.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const downloadAllFiles = async () => {
+    try {
+      if (processedFiles.length === 0) {
+        setError('다운로드할 파일이 없습니다.');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      setLoading(true);
+      setMessage('ZIP 파일을 생성하고 있습니다...');
+
+      // ZIP 파일 생성
+      const zip = new JSZip();
+      
+      // 각 파일을 ZIP에 추가
+      processedFiles.forEach(file => {
+        zip.file(file.name, file.content);
       });
 
-      const data = await res.json();
+      // ZIP 파일 생성 및 다운로드
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kakao-split-${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
       
-      if (data.success) {
-        setMessage(`${data.message}\n\n데이터베이스 정보:\n• 제목: ${data.database.title}\n• 속성: ${data.database.properties.join(', ')}`);
-      } else {
-        setError(data.error);
-      }
+      setMessage(`${processedFiles.length}개 파일이 ZIP으로 다운로드되었습니다.`);
+      setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      setError('연결 테스트 중 오류가 발생했습니다.');
+      setError('ZIP 파일 생성 중 오류가 발생했습니다.');
+      setTimeout(() => setError(''), 3000);
     } finally {
       setLoading(false);
-      setTimeout(() => {
-        setMessage('');
-        setError('');
-      }, 10000); // 10초 후 메시지 삭제
     }
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
       <main className="flex flex-col items-center justify-center flex-1 px-20 text-center">
-        <h1 className="text-4xl font-bold mb-8">
-          카카오톡 대화 → 노션 자동 등록
+        <h1 className="text-4xl font-bold mb-2">
+          KakaoSplit
         </h1>
+        <p className="text-lg text-gray-600 mb-8">
+          카카오톡 대화를 날짜별로 분리하여 파일로 저장
+        </p>
         
         <div className="w-full max-w-md">
           <h2 className="text-2xl font-semibold mb-4">설정</h2>
           <div className="flex flex-col space-y-4">
-            <input
-              type="password"
-              placeholder="노션 API 토큰"
-              value={notionToken}
-              onChange={(e) => setNotionToken(e.target.value)}
-              className="border p-2 rounded"
-            />
-            <input
-              type="text"
-              placeholder="노션 데이터베이스 ID"
-              value={notionDbId}
-              onChange={(e) => setNotionDbId(e.target.value)}
-              className="border p-2 rounded"
-            />
             <div className="flex flex-col space-y-2">
               <label className="text-sm font-medium text-gray-700">저장 폴더 경로</label>
               <div className="flex space-x-2">
                 <input
                   type="text"
-                  placeholder="절대 경로 (예: /tmp/kakao-chats 또는 /Users/username/Documents/kakao-chats)"
+                  placeholder="절대 경로 (예: /tmp/kakao-split 또는 /Users/username/Documents/kakao-split)"
                   value={outputPath}
                   onChange={(e) => setOutputPath(e.target.value)}
                   className="flex-1 border p-2 rounded"
@@ -384,21 +366,12 @@ export default function Home() {
                 권한 문제가 발생하면 "임시폴더" 버튼을 사용하거나, 직접 접근 가능한 폴더 경로를 입력해주세요.
               </p>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleSaveNotionSettings}
-                className="rounded-full bg-gray-500 text-white px-6 py-2 font-semibold hover:bg-gray-600 transition-colors"
-              >
-                설정 저장
-              </button>
-              <button
-                onClick={testNotionConnection}
-                disabled={loading}
-                className="rounded-full bg-purple-500 text-white px-6 py-2 font-semibold hover:bg-purple-600 transition-colors disabled:bg-gray-400"
-              >
-                {loading ? '연결 테스트 중...' : '연결 테스트'}
-              </button>
-            </div>
+            <button
+              onClick={handleSaveSettings}
+              className="rounded-full bg-gray-500 text-white px-6 py-2 font-semibold hover:bg-gray-600 transition-colors"
+            >
+              설정 저장
+            </button>
           </div>
         </div>
 
@@ -414,6 +387,22 @@ export default function Home() {
 
         <div className="w-full max-w-md mt-8">
           <h2 className="text-2xl font-semibold mb-4">생성된 파일 목록</h2>
+          
+          {processedFiles.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-sm text-blue-700 mb-2">
+                🎉 CSV 파일 처리 완료! {processedFiles.length}개의 날짜별 파일이 생성되었습니다.
+              </p>
+              <button
+                onClick={downloadAllFiles}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:bg-gray-400"
+              >
+                {loading ? 'ZIP 생성 중...' : 'ZIP으로 다운로드'}
+              </button>
+            </div>
+          )}
+          
           <div className="flex flex-col items-start space-y-2">
             <div className="flex items-center">
               <input
@@ -427,36 +416,37 @@ export default function Home() {
               <label htmlFor="all">전체 선택</label>
             </div>
             {outputFiles.map(file => (
-              <div key={file} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={file}
-                  value={file}
-                  onChange={handleFileSelection}
-                  checked={selectedFiles.includes(file)}
-                  className="mr-2"
-                />
-                <label htmlFor={file}>{file}</label>
+              <div key={file} className="flex items-center justify-between w-full">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={file}
+                    value={file}
+                    onChange={handleFileSelection}
+                    checked={selectedFiles.includes(file)}
+                    className="mr-2"
+                  />
+                  <label htmlFor={file}>{file}</label>
+                  {processedFiles.find(f => f.name === file) && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      ({Math.round(processedFiles.find(f => f.name === file)!.size / 1024)}KB)
+                    </span>
+                  )}
+                </div>
+                {processedFiles.find(f => f.name === file) && (
+                  <button
+                    onClick={() => downloadFile(file)}
+                    className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                  >
+                    다운로드
+                  </button>
+                )}
               </div>
             ))}
           </div>
-          {outputFiles.length > 0 && (
-            <div className="flex space-x-4 mt-4">
-              <button
-                onClick={() => handleRegisterToNotion(false)}
-                className="rounded-full bg-green-500 text-white px-6 py-2 font-semibold hover:bg-green-600 transition-colors" disabled={loading}>
-                {loading ? '노션 등록 중...' : '선택 파일만 노션 등록'}
-              </button>
-              <button
-                onClick={() => handleRegisterToNotion(true)}
-                className="rounded-full bg-purple-500 text-white px-6 py-2 font-semibold hover:bg-purple-600 transition-colors" disabled={loading}>
-                {loading ? '노션 등록 중...' : '전체 파일 노션 등록'}
-              </button>
-            </div>
-          )}
         </div>
 
-        {message && <p className="mt-4 text-green-600">{message}</p>}
+        {message && <p className="mt-4 text-green-600 whitespace-pre-line">{message}</p>}
         {error && <p className="mt-4 text-red-600">{error}</p>}
 
       </main>
