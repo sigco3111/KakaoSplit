@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const files = fs.readdirSync(outputDir)
-        .filter(file => file.endsWith('.md'))
+        .filter(file => file.endsWith('.md') || file.endsWith('.txt') || file.startsWith('chat_'))
         .sort();
       
       return NextResponse.json({ files, outputPath: outputDir });
