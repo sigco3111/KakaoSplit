@@ -24,7 +24,7 @@
 - Vercel에 프로젝트를 연결하여 자동 배포
 - 프론트엔드: Next.js, 파일 업로드/설정/알림 UI
 - 백엔드: `/api/upload`, `/api/notion-register` 등 서버리스 함수로 구현
-- 외부 스토리지(S3 등) 연동 가능
+- vercel --prod 명령어로 배포.
 
 ## 참고
 - PRD.md: 상세 요구사항 및 기능 흐름
