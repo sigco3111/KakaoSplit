@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next",
+  "functions": {
+    "pages/api/upload.js": {
+      "maxDuration": 30
+    },
+    "pages/api/notion-register.js": {
+      "maxDuration": 30  
+    }
+  },
+  "regions": ["icn1"]
+}

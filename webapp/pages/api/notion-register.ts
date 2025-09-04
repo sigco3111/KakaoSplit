@@ -52,7 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (lines.length > 20) {
         // 긴 대화는 전체를 하나의 블록으로 합침
         const allContent = lines.join('\n');
-        const truncatedContent = allContent.length > 2000 ? allContent.substring(0, 2000) + '...\n\n(내용이 길어 일부만 표시됩니다)' : allContent;
+        // 안전하게 1800자로 제한 (여유분 확보)
+        const truncatedContent = allContent.length > 1800 ? allContent.substring(0, 1800) + '...\n\n(내용이 길어 일부만 표시됩니다)' : allContent;
         
         blocks = [{
           object: 'block' as const,
@@ -72,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           paragraph: {
             rich_text: [{
               type: 'text' as const,
-              text: { content: line.length > 2000 ? line.substring(0, 2000) + '...' : line },
+              text: { content: line.length > 1800 ? line.substring(0, 1800) + '...' : line },
             }],
           },
         }));
