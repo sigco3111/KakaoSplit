@@ -271,6 +271,47 @@ export default function Home() {
     }
   };
 
+  const testNotionConnection = async () => {
+    if (!notionToken || !notionDbId) {
+      setError('Notion 토큰과 데이터베이스 ID를 먼저 입력해주세요.');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const res = await fetch('/api/test-notion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          notionToken,
+          notionDbId,
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        setMessage(`${data.message}\n\n데이터베이스 정보:\n• 제목: ${data.database.title}\n• 속성: ${data.database.properties.join(', ')}`);
+      } else {
+        setError(data.error);
+      }
+    } catch (error) {
+      setError('연결 테스트 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+      setTimeout(() => {
+        setMessage('');
+        setError('');
+      }, 10000); // 10초 후 메시지 삭제
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
       <main className="flex flex-col items-center justify-center flex-1 px-20 text-center">
@@ -343,12 +384,21 @@ export default function Home() {
                 권한 문제가 발생하면 "임시폴더" 버튼을 사용하거나, 직접 접근 가능한 폴더 경로를 입력해주세요.
               </p>
             </div>
-            <button
-              onClick={handleSaveNotionSettings}
-              className="rounded-full bg-gray-500 text-white px-6 py-2 font-semibold hover:bg-gray-600 transition-colors"
-            >
-              설정 저장
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleSaveNotionSettings}
+                className="rounded-full bg-gray-500 text-white px-6 py-2 font-semibold hover:bg-gray-600 transition-colors"
+              >
+                설정 저장
+              </button>
+              <button
+                onClick={testNotionConnection}
+                disabled={loading}
+                className="rounded-full bg-purple-500 text-white px-6 py-2 font-semibold hover:bg-purple-600 transition-colors disabled:bg-gray-400"
+              >
+                {loading ? '연결 테스트 중...' : '연결 테스트'}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -12,6 +12,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
+    // 데이터베이스 ID 정리 (하이픈 제거 및 정규화)
+    const cleanDbId = notionDbId.replace(/-/g, '');
+    console.log(`Original DB ID: ${notionDbId}`);
+    console.log(`Cleaned DB ID: ${cleanDbId}`);
+
     const notion = new Client({ auth: notionToken });
     
     // 절대경로인지 확인, 아니면 프로젝트 루트 기준으로 처리
@@ -97,20 +102,35 @@ export async function POST(request: NextRequest) {
           },
         });
       }
-      
-      await notion.pages.create({
-        parent: { database_id: notionDbId },
-        properties: {
-          title: {
-            title: [
-              {
-                text: { content: title },
-              },
-            ],
+
+      try {
+        await notion.pages.create({
+          parent: { database_id: cleanDbId },
+          properties: {
+            title: {
+              title: [
+                {
+                  text: { content: title },
+                },
+              ],
+            },
           },
-        },
-        children: finalBlocks,
-      });
+          children: finalBlocks,
+        });
+        
+        console.log(`Successfully created page: ${title}`);
+      } catch (pageError: any) {
+        console.error(`Failed to create page for ${title}:`, pageError);
+        
+        // 구체적인 에러 메시지 제공
+        if (pageError.code === 'object_not_found') {
+          throw new Error(`Notion 데이터베이스를 찾을 수 없습니다 (원본 ID: ${notionDbId}, 정리된 ID: ${cleanDbId}). 다음을 확인해주세요:\n1. 데이터베이스 ID가 정확한지 확인\n2. Integration이 해당 데이터베이스에 연결되어 있는지 확인\n3. 데이터베이스가 공유되어 있는지 확인`);
+        } else if (pageError.code === 'unauthorized') {
+          throw new Error('Notion API 토큰이 유효하지 않거나 권한이 부족합니다.');
+        } else {
+          throw pageError;
+        }
+      }
     }
 
     return NextResponse.json({ message: '노션에 성공적으로 등록되었습니다' });
