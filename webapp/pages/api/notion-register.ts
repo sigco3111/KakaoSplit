@@ -43,18 +43,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const content = fs.readFileSync(filePath, 'utf-8');
       const title = file.replace('.md', '');
 
-      // Simple markdown to Notion blocks conversion (each line is a paragraph)
-      const blocks = content.split('\n').map(line => ({
-        object: 'block' as const,
-        type: 'paragraph' as const,
-        paragraph: {
-          rich_text: [{
-            type: 'text' as const,
-            text: { content: line },
-          }],
-        },
-      }));
+      // 텍스트 처리 전략: 매우 보수적으로 접근
+      const lines = content.split('\n').filter(line => line.trim().length > 0);
+      
+      let blocks;
+      
+      // 방법 1: 전체 내용을 하나의 블록으로 처리 (가장 안전)
+      if (lines.length > 20) {
+        // 긴 대화는 전체를 하나의 블록으로 합침
+        const allContent = lines.join('\n');
+        const truncatedContent = allContent.length > 2000 ? allContent.substring(0, 2000) + '...\n\n(내용이 길어 일부만 표시됩니다)' : allContent;
+        
+        blocks = [{
+          object: 'block' as const,
+          type: 'paragraph' as const,
+          paragraph: {
+            rich_text: [{
+              type: 'text' as const,
+              text: { content: truncatedContent },
+            }],
+          },
+        }];
+      } else {
+        // 짧은 대화만 각 줄을 개별 블록으로 처리
+        blocks = lines.slice(0, 20).map(line => ({
+          object: 'block' as const,
+          type: 'paragraph' as const,
+          paragraph: {
+            rich_text: [{
+              type: 'text' as const,
+              text: { content: line.length > 2000 ? line.substring(0, 2000) + '...' : line },
+            }],
+          },
+        }));
+      }
 
+      // 페이지 생성 (절대적으로 안전한 블록 수 보장)
+      const finalBlocks = blocks.slice(0, 50); // 더 보수적으로 50개로 제한
+      
+      // 디버깅용 로그
+      console.log(`Processing file: ${title}`);
+      console.log(`Total lines: ${lines.length}`);
+      console.log(`Final blocks count: ${finalBlocks.length}`);
+      
+      if (finalBlocks.length === 0) {
+        // 빈 파일인 경우 기본 메시지 추가
+        finalBlocks.push({
+          object: 'block' as const,
+          type: 'paragraph' as const,
+          paragraph: {
+            rich_text: [{
+              type: 'text' as const,
+              text: { content: '이 날에는 메시지가 없습니다.' },
+            }],
+          },
+        });
+      }
+      
       await notion.pages.create({
         parent: { database_id: notionDbId },
         properties: {
@@ -66,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             ],
           },
         },
-        children: blocks,
+        children: finalBlocks,
       });
     }
 
