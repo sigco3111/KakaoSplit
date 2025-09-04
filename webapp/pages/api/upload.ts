@@ -25,6 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const file = Array.isArray(files.file) ? files.file[0] : files.file;
+    const outputPath = Array.isArray(fields.outputPath) ? fields.outputPath[0] : fields.outputPath || 'output';
 
     if (!file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -145,9 +146,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       console.log('Grouped dates:', Object.keys(groupedByDate));
 
-      const outputDir = path.join(process.cwd(), 'output');
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
+      // 절대경로인지 확인, 아니면 프로젝트 루트 기준으로 처리
+      const isAbsolute = path.isAbsolute(outputPath as string);
+      let outputDir: string;
+      
+      if (isAbsolute) {
+        outputDir = outputPath as string;
+      } else {
+        outputDir = path.join(process.cwd(), outputPath as string);
+      }
+        
+      try {
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
+      } catch (error: any) {
+        console.error('폴더 생성 실패:', error);
+        // 권한 에러 시 대안 경로 사용
+        if (error.code === 'EACCES' || error.code === 'EPERM') {
+          outputDir = path.join(process.cwd(), 'output');
+          console.log('권한 문제로 대안 경로 사용:', outputDir);
+          if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+          }
+        } else {
+          return res.status(500).json({ 
+            error: `폴더 생성 실패: ${error.message}. 경로 권한을 확인해주세요.` 
+          });
+        }
       }
 
       let filesCreated = 0;
