@@ -1,16 +1,17 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "functions": {
-    "pages/api/upload.js": {
+    "app/api/upload/route.js": {
       "maxDuration": 30
     },
-    "pages/api/notion-register.js": {
+    "app/api/notion-register/route.js": {
       "maxDuration": 30  
+    },
+    "app/api/get-files/route.js": {
+      "maxDuration": 10
     }
   },
   "regions": ["icn1"]

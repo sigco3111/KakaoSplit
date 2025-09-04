@@ -1,33 +1,29 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { Client } from '@notionhq/client';
 import fs from 'fs';
 import path from 'path';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).end('Method Not Allowed');
-  }
-
-  const { notionToken, notionDbId, selectedFiles, outputPath = 'output' } = req.body;
-
-  if (!notionToken || !notionDbId || !selectedFiles || !Array.isArray(selectedFiles)) {
-    return res.status(400).json({ error: 'Missing required parameters' });
-  }
-
-  const notion = new Client({ auth: notionToken });
-  
-  // 절대경로인지 확인, 아니면 프로젝트 루트 기준으로 처리
-  const isAbsolute = path.isAbsolute(outputPath);
-  let outputDir: string;
-  
-  if (isAbsolute) {
-    outputDir = outputPath;
-  } else {
-    outputDir = path.join(process.cwd(), outputPath);
-  }
-
+export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
+    const { notionToken, notionDbId, selectedFiles, outputPath = 'output' } = body;
+
+    if (!notionToken || !notionDbId || !selectedFiles || !Array.isArray(selectedFiles)) {
+      return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
+    }
+
+    const notion = new Client({ auth: notionToken });
+    
+    // 절대경로인지 확인, 아니면 프로젝트 루트 기준으로 처리
+    const isAbsolute = path.isAbsolute(outputPath);
+    let outputDir: string;
+    
+    if (isAbsolute) {
+      outputDir = outputPath;
+    } else {
+      outputDir = path.join(process.cwd(), outputPath);
+    }
+
     // 폴더 접근 권한 확인
     if (!fs.existsSync(outputDir)) {
       // 권한 문제로 폴더가 없을 경우 대안 경로 확인
@@ -35,9 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (fs.existsSync(fallbackDir)) {
         outputDir = fallbackDir;
       } else {
-        return res.status(400).json({ error: '파일이 저장된 폴더를 찾을 수 없습니다.' });
+        return NextResponse.json({ error: '파일이 저장된 폴더를 찾을 수 없습니다.' }, { status: 400 });
       }
     }
+
     for (const file of selectedFiles) {
       const filePath = path.join(outputDir, file);
       const content = fs.readFileSync(filePath, 'utf-8');
@@ -116,9 +113,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    res.status(200).json({ message: '노션에 성공적으로 등록되었습니다' });
-  } catch (error) {
+    return NextResponse.json({ message: '노션에 성공적으로 등록되었습니다' });
+  } catch (error: any) {
     console.error('Error registering to Notion:', error);
-    res.status(500).json({ error: '노션 등록 중 오류가 발생했습니다' });
+    return NextResponse.json({ error: '노션 등록 중 오류가 발생했습니다' }, { status: 500 });
   }
 }
