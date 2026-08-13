@@ -3,9 +3,11 @@
 
 카카오톡 대화 CSV 파일을 날짜별로 분리하여 마크다운형식의 파일로 다운로드할 수 있는 웹 애플리케이션입니다.
 
-실행주소1 : https://sigco3111.github.io/KakaoSplit/
+Live Demo : https://kakao-split.vercel.app/
 
-실행주소2 : https://dev-canvas-pi.vercel.app/
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://kakao-split.vercel.app/)
+
+> 📦 **호스팅 메모**: 이 프로젝트는 CSV 업로드/날짜별 분리/ZIP 다운로드를 Next.js API routes로 처리하는 풀스택 앱이라 GitHub Pages(정적 호스팅) 대신 **Vercel**에 배포합니다. `vercel.json` + `.vercelignore` 파일은 정직함 차원에서 그대로 보존됩니다.
 
 ## 🚀 주요 기능
 
@@ -13,14 +15,14 @@
 - **날짜별 자동 분리**: 대화 내용을 날짜별로 자동 분리하여 개별 파일 생성
 - **ZIP 다운로드**: 처리된 모든 파일을 ZIP으로 압축하여 한 번에 다운로드
 - **개별 다운로드**: 원하는 날짜의 파일만 선택하여 개별 다운로드
-- **Vercel 최적화**: 서버리스 환경에서 안정적으로 작동
+- **Vercel 서버리스 최적화** (`/tmp` 임시 파일 + 메모리 기반 관리): 서버리스 환경에서 안정적으로 작동
 
 ## 🛠️ 기술 스택
 
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes
 - **파일 처리**: csv-parse, JSZip
-- **배포**: Vercel
+| **배포**: Vercel (CSV API routes — Pages 정적 호스팅 불가, Vercel 풀스택 사용) |
 
 ## 📦 설치 및 실행
 
@@ -44,7 +46,7 @@ npm run dev
 # 빌드
 npm run build
 
-# Vercel 배포
+# Vercel 배포 (API routes 필요)
 vercel --prod
 ```
 
